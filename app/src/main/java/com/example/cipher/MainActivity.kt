@@ -17,6 +17,9 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // Rotates in today's keypair and clears out yesterday's private key
+        KeyManager.ensureTodayKeyPair()
+
         val tvPublicKey = findViewById<TextView>(R.id.tvPublicKey)
         val btnCopyKey = findViewById<LinearLayout>(R.id.btnCopyKey)
         val btnShareKey = findViewById<LinearLayout>(R.id.btnShareKey)
@@ -41,8 +44,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnSendMessage.setOnClickListener {
-            // TODO: startActivity(Intent(this, ComposeMessageActivity::class.java))
-            Toast.makeText(this, "Compose screen coming soon", Toast.LENGTH_SHORT).show()
+            startActivity(Intent(this, ComposeMessageActivity::class.java))
         }
 
         btnInbox.setOnClickListener {

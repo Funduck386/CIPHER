@@ -48,16 +48,13 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Called after any successful sign-in (new or returning user).
-     * If this device has no keypair yet, generate one and upload the public key.
-     */
     private fun onAuthSuccess() {
-        if (!KeyManager.hasKeyPair()) {
-            KeyManager.generateKeyPairIfNeeded()
-            val publicKeyBase64 = KeyManager.getPublicKeyBase64()
-            // TODO: upload publicKeyBase64 to Supabase, tied to this user's account
-        }
+        // Generates today's keypair if this device doesn't have one yet;
+        // MainActivity also calls this on every launch to keep the key current.
+        KeyManager.ensureTodayKeyPair()
+
+        val publicKeyBase64 = KeyManager.getPublicKeyBase64()
+        // TODO: upload publicKeyBase64 to Supabase, tied to this user's account and today's date
 
         startActivity(Intent(this, MainActivity::class.java))
         finish()
