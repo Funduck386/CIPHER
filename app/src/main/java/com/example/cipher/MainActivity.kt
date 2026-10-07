@@ -25,6 +25,7 @@ class MainActivity : AppCompatActivity() {
         val btnShareKey = findViewById<LinearLayout>(R.id.btnShareKey)
         val btnSendMessage = findViewById<LinearLayout>(R.id.btnSendMessage)
         val btnInbox = findViewById<LinearLayout>(R.id.btnInbox)
+        val btnKeyRequests = findViewById<LinearLayout>(R.id.btnKeyRequests)
 
         val publicKey = KeyManager.getPublicKeyBase64() ?: "No key found"
         tvPublicKey.text = publicKey
@@ -48,8 +49,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnInbox.setOnClickListener {
-            // TODO: startActivity(Intent(this, InboxActivity::class.java))
-            Toast.makeText(this, "Inbox screen coming soon", Toast.LENGTH_SHORT).show()
+            startActivity(Intent(this, InboxActivity::class.java))
+        }
+
+        btnKeyRequests.setOnClickListener {
+            startActivity(Intent(this, KeyRequestsActivity::class.java))
         }
     }
 }

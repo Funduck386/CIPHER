@@ -31,6 +31,9 @@
             android:exported="false" />
 
         <activity android:name=".MessageSentActivity" android:exported="false" />
+        <activity android:name=".ChatActivity" android:exported="false" />
+        <activity android:name=".InboxActivity" android:exported="false" />
+        <activity android:name=".KeyRequestsActivity" android:exported="false" />
     </application>
 
 </manifest>

@@ -3,9 +3,14 @@ package com.example.cipher
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
-import android.widget.EditText
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import com.example.cipher.crypto.KeyManager
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.providers.Github
+import io.github.jan.supabase.auth.providers.Google
+import io.github.jan.supabase.auth.status.SessionStatus
+import kotlinx.coroutines.launch
 
 class LoginActivity : AppCompatActivity() {
 
@@ -13,38 +18,37 @@ class LoginActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
 
-        val etEmailOrPhone = findViewById<EditText>(R.id.etEmailOrPhone)
-        val etPassword = findViewById<EditText>(R.id.etPassword)
-        val btnLogin = findViewById<Button>(R.id.btnLogin)
         val btnGoogle = findViewById<Button>(R.id.btnGoogleSignIn)
-        val btnApple = findViewById<Button>(R.id.btnAppleSignIn)
-        val btnPhone = findViewById<Button>(R.id.btnPhoneSignIn)
+        val btnGithub = findViewById<Button>(R.id.btnGithubSignIn)
         val btnGuest = findViewById<Button>(R.id.tvGuestMode)
 
-        btnLogin.setOnClickListener {
-            val identifier = etEmailOrPhone.text.toString()
-            val password = etPassword.text.toString()
-            // TODO: call Supabase email/password sign-in with identifier + password
-            onAuthSuccess()
+        // Watches Supabase's auth state. OAuth sign-in finishes asynchronously
+        // (the user leaves the app to a browser and comes back), so this is
+        // what actually triggers onAuthSuccess() once a session exists.
+        lifecycleScope.launch {
+            SupabaseClientProvider.client.auth.sessionStatus.collect { status ->
+                if (status is SessionStatus.Authenticated) {
+                    onAuthSuccess()
+                }
+            }
         }
 
         btnGoogle.setOnClickListener {
-            // TODO: wire up Supabase Google OAuth sign-in
-            onAuthSuccess()
+            lifecycleScope.launch {
+                SupabaseClientProvider.client.auth.signInWith(Google)
+            }
         }
 
-        btnApple.setOnClickListener {
-            // TODO: wire up Supabase Apple OAuth sign-in
-            onAuthSuccess()
-        }
-
-        btnPhone.setOnClickListener {
-            // TODO: navigate to phone number entry + OTP screen
+        btnGithub.setOnClickListener {
+            lifecycleScope.launch {
+                SupabaseClientProvider.client.auth.signInWith(Github)
+            }
         }
 
         btnGuest.setOnClickListener {
-            // TODO: create anonymous Supabase session
-            onAuthSuccess()
+            lifecycleScope.launch {
+                SupabaseClientProvider.client.auth.signInAnonymously()
+            }
         }
     }
 
@@ -54,7 +58,8 @@ class LoginActivity : AppCompatActivity() {
         KeyManager.ensureTodayKeyPair()
 
         val publicKeyBase64 = KeyManager.getPublicKeyBase64()
-        // TODO: upload publicKeyBase64 to Supabase, tied to this user's account and today's date
+        // TODO: upload publicKeyBase64 to Supabase (Postgrest), tied to this
+        // user's account id and today's date, so others can fetch it
 
         startActivity(Intent(this, MainActivity::class.java))
         finish()
