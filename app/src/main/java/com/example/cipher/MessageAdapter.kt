@@ -24,8 +24,8 @@ class MessageAdapter(
 
     override fun onBindViewHolder(holder: MessageViewHolder, position: Int) {
         val message = messages[position]
-        holder.tvSenderKey.text = message.senderPublicKeyBase64
-        holder.tvReceivedAt.text = "Received ${message.receivedAt}"
+        holder.tvSenderKey.text = message.decryptedPreview
+        holder.tvReceivedAt.text = message.receivedAt
         holder.itemView.setOnClickListener { onClick(message) }
     }
 

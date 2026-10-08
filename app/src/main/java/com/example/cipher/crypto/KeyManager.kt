@@ -11,15 +11,19 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Generates one EC keypair per calendar day, stored in Android Keystore.
+ * Generates one RSA keypair per calendar day, stored in Android Keystore.
  * Private keys never leave the device and are non-exportable.
  * When a new day's key is generated, the previous day's private key is deleted,
  * so messages encrypted to yesterday's public key can no longer be decrypted.
+ *
+ * RSA (not EC) so the keys can be used directly with RSA/ECB/OAEP encryption
+ * in EncryptionHelper, without needing a separate key-agreement step.
  */
 object KeyManager {
 
     private const val ANDROID_KEYSTORE = "AndroidKeyStore"
     private const val ALIAS_PREFIX = "cipher_key_"
+    private const val KEY_SIZE = 2048
     private val dateFormat = SimpleDateFormat("yyyyMMdd", Locale.US)
 
     private val keyStore: KeyStore by lazy {
@@ -43,13 +47,13 @@ object KeyManager {
             alias,
             KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
         )
-            .setKeySize(256)
-            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-            .setBlockModes(KeyProperties.BLOCK_MODE_ECB)
+            .setKeySize(KEY_SIZE)
+            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_OAEP)
+            .setDigests(KeyProperties.DIGEST_SHA256)
             .build()
 
         val generator = KeyPairGenerator.getInstance(
-            KeyProperties.KEY_ALGORITHM_EC, ANDROID_KEYSTORE
+            KeyProperties.KEY_ALGORITHM_RSA, ANDROID_KEYSTORE
         )
         generator.initialize(spec)
         generator.generateKeyPair()
@@ -69,4 +73,10 @@ object KeyManager {
 
     fun getPublicKeyBase64(): String? =
         getPublicKey()?.encoded?.let { Base64.encodeToString(it, Base64.NO_WRAP) }
+
+    /** The private key entry used to decrypt messages sent to today's public key. */
+    fun getTodayPrivateKeyEntry(): KeyStore.PrivateKeyEntry? {
+        if (!hasTodayKeyPair()) return null
+        return keyStore.getEntry(todayAlias(), null) as? KeyStore.PrivateKeyEntry
+    }
 }
