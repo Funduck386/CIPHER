@@ -8,6 +8,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.example.cipher.crypto.KeyManager
 import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.handleDeeplinks
 import io.github.jan.supabase.auth.providers.Github
 import io.github.jan.supabase.auth.providers.Google
 import io.github.jan.supabase.auth.status.SessionStatus
@@ -19,9 +20,20 @@ import java.util.Locale
 
 class LoginActivity : AppCompatActivity() {
 
+    // Supabase's sessionStatus can emit Authenticated more than once (e.g. once
+    // from the stored session, once more after a deep link refreshes it). This
+    // guard stops onAuthSuccess() — and the navigation to MainActivity it
+    // triggers — from running more than once per app open.
+    private var hasHandledAuthSuccess = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
+
+        // If this activity was (re)launched by the OAuth browser redirect
+        // (cipher://login-callback), hand that intent to Supabase so it can
+        // read the access token out of it and turn it into a real session.
+        intent?.let { SupabaseClientProvider.client.handleDeeplinks(it) }
 
         val btnGoogle = findViewById<Button>(R.id.btnGoogleSignIn)
         val btnGithub = findViewById<Button>(R.id.btnGithubSignIn)
@@ -40,24 +52,64 @@ class LoginActivity : AppCompatActivity() {
 
         btnGoogle.setOnClickListener {
             lifecycleScope.launch {
-                SupabaseClientProvider.client.auth.signInWith(Google)
+                try {
+                    SupabaseClientProvider.client.auth.signInWith(Google)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    Toast.makeText(
+                        this@LoginActivity,
+                        "Couldn't reach the server. Check your connection and try again.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
             }
         }
 
         btnGithub.setOnClickListener {
             lifecycleScope.launch {
-                SupabaseClientProvider.client.auth.signInWith(Github)
+                try {
+                    SupabaseClientProvider.client.auth.signInWith(Github)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    Toast.makeText(
+                        this@LoginActivity,
+                        "Couldn't reach the server. Check your connection and try again.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
             }
         }
 
         btnGuest.setOnClickListener {
             lifecycleScope.launch {
-                SupabaseClientProvider.client.auth.signInAnonymously()
+                try {
+                    SupabaseClientProvider.client.auth.signInAnonymously()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    Toast.makeText(
+                        this@LoginActivity,
+                        "Couldn't reach the server. Check your connection and try again.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
             }
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // Covers the case where Android reuses the existing LoginActivity
+        // instance instead of creating a new one when the browser redirects
+        // back (this is why LoginActivity is launchMode="singleTask" in the
+        // manifest) — onCreate won't run again, so we handle the deep link here.
+        setIntent(intent)
+        SupabaseClientProvider.client.handleDeeplinks(intent)
+    }
+
     private fun onAuthSuccess() {
+        if (hasHandledAuthSuccess) return
+        hasHandledAuthSuccess = true
+
         // Generates today's keypair if this device doesn't have one yet;
         // MainActivity also calls this on every launch to keep the key current.
         KeyManager.ensureTodayKeyPair()
@@ -80,8 +132,7 @@ class LoginActivity : AppCompatActivity() {
                     e.printStackTrace()
                     Toast.makeText(
                         this@LoginActivity,
-                        "Couldn't sync your public key. You can keep using the app, " +
-                                "but others may not be able to message you until this succeeds.",
+                        "Couldn't sync your public key. You can keep using the app, but others may not be able to message you until this succeeds.",
                         Toast.LENGTH_LONG
                     ).show()
                 }

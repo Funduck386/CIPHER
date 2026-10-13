@@ -12,7 +12,7 @@ import io.github.jan.supabase.postgrest.Postgrest
 object SupabaseClientProvider {
 
     private const val SUPABASE_URL = "https://psrotmrfhkimlsdooqfz.supabase.co"
-    private const val SUPABASE_ANON_KEY = "sb_publishable_ML7njpOKBpSAJ0YKtv6Exw_TVGLE..."
+    private const val SUPABASE_ANON_KEY = "sb_publishable_ML7njpOKBpSAJ0YKtv6Exw_TVGLEcex"
 
     val client = createSupabaseClient(
         supabaseUrl = SUPABASE_URL,
