@@ -3,11 +3,14 @@ package com.example.cipher.crypto
 import android.util.Base64
 import java.security.KeyFactory
 import java.security.PublicKey
+import java.security.spec.MGF1ParameterSpec
 import java.security.spec.X509EncodedKeySpec
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
+import javax.crypto.spec.OAEPParameterSpec
+import javax.crypto.spec.PSource
 import javax.crypto.spec.SecretKeySpec
 
 /**
@@ -23,7 +26,23 @@ import javax.crypto.spec.SecretKeySpec
 object EncryptionHelper {
 
     private const val AES_TRANSFORMATION = "AES/GCM/NoPadding"
-    private const val RSA_TRANSFORMATION = "RSA/ECB/OAEPWithSHA-256AndMGF1Padding"
+
+    // Generic "RSA/ECB/OAEPPadding" + an explicit OAEPParameterSpec below, not
+    // the named "RSA/ECB/OAEPWithSHA-256AndMGF1Padding" transformation. That
+    // named string means OAEP with SHA-256 as *both* the main digest and the
+    // MGF1 digest. But the keys in KeyManager are generated with
+    // setDigests(SHA256) only — AndroidKeyStore can't be told to use a
+    // SHA-256 MGF1 digest below API 35 (setMgf1Digests), so it silently keeps
+    // its default MGF1 digest of SHA-1. Asking the cipher for MGF1-SHA256
+    // against a key provisioned for MGF1-SHA1 doesn't fail at init() — it
+    // fails inside the keystore at doFinal() with
+    // "KeyStoreException: Unknown error ... Km(UNKNOWN_ERROR)", wrapped in an
+    // IllegalBlockSizeException. Spelling out SHA-256/MGF1-SHA1 here matches
+    // what the key actually supports.
+    private const val RSA_TRANSFORMATION = "RSA/ECB/OAEPPadding"
+    private val RSA_OAEP_PARAMS = OAEPParameterSpec(
+        "SHA-256", "MGF1", MGF1ParameterSpec.SHA1, PSource.PSpecified.DEFAULT
+    )
     private const val GCM_TAG_LENGTH_BITS = 128
 
     /**
@@ -43,7 +62,7 @@ object EncryptionHelper {
         // 3. Encrypt the AES key with the recipient's RSA public key
         val recipientPublicKey = decodePublicKey(recipientPublicKeyBase64)
         val rsaCipher = Cipher.getInstance(RSA_TRANSFORMATION)
-        rsaCipher.init(Cipher.ENCRYPT_MODE, recipientPublicKey)
+        rsaCipher.init(Cipher.ENCRYPT_MODE, recipientPublicKey, RSA_OAEP_PARAMS)
         val encryptedAesKey = rsaCipher.doFinal(aesKey.encoded)
 
         return EncryptedPayload(
@@ -64,7 +83,7 @@ object EncryptionHelper {
         return try {
             // 1. Recover the AES key using our RSA private key
             val rsaCipher = Cipher.getInstance(RSA_TRANSFORMATION)
-            rsaCipher.init(Cipher.DECRYPT_MODE, privateKeyEntry.privateKey)
+            rsaCipher.init(Cipher.DECRYPT_MODE, privateKeyEntry.privateKey, RSA_OAEP_PARAMS)
             val aesKeyBytes = rsaCipher.doFinal(Base64.decode(payload.encryptedAesKey, Base64.NO_WRAP))
             val aesKey: SecretKey = SecretKeySpec(aesKeyBytes, "AES")
 

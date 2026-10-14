@@ -50,6 +50,14 @@ object KeyManager {
             .setKeySize(KEY_SIZE)
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_OAEP)
             .setDigests(KeyProperties.DIGEST_SHA256)
+            // NOTE: this key gets OAEP with main digest SHA-256, but
+            // AndroidKeyStore defaults the MGF1 digest to SHA-1 since we don't
+            // (and, at minSdk 28, can't — setMgf1Digests needs API 35) call
+            // setMgf1Digests(). EncryptionHelper.RSA_TRANSFORMATION must use a
+            // cipher spec that matches this SHA-256/MGF1-SHA1 combination
+            // exactly, or decryption fails at doFinal() with an
+            // IllegalBlockSizeException wrapping a KeyStoreException
+            // ("Unknown error ... Km(UNKNOWN_ERROR)").
             .build()
 
         val generator = KeyPairGenerator.getInstance(
