@@ -9,7 +9,14 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import com.example.cipher.crypto.KeyManager
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.postgrest.from
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
@@ -19,6 +26,14 @@ class MainActivity : AppCompatActivity() {
 
         // Rotates in today's keypair and clears out yesterday's private key
         KeyManager.ensureTodayKeyPair()
+
+        // The rotation above only changes what's stored locally. If the key
+        // actually changed (new day, fresh install, etc.) without the user
+        // going through LoginActivity again, Supabase's public_keys table
+        // would otherwise keep serving the *old* key to anyone who looks this
+        // user up — making anything newly sent to them undecryptable. So we
+        // re-sync on every MainActivity open too, not just right after login.
+        syncPublicKeyIfNeeded()
 
         val tvPublicKey = findViewById<TextView>(R.id.tvPublicKey)
         val btnCopyKey = findViewById<LinearLayout>(R.id.btnCopyKey)
@@ -54,6 +69,31 @@ class MainActivity : AppCompatActivity() {
 
         btnKeyRequests.setOnClickListener {
             startActivity(Intent(this, KeyRequestsActivity::class.java))
+        }
+    }
+
+    private fun syncPublicKeyIfNeeded() {
+        val publicKeyBase64 = KeyManager.getPublicKeyBase64() ?: return
+        val userId = SupabaseClientProvider.client.auth.currentUserOrNull()?.id ?: return
+
+        lifecycleScope.launch {
+            val today = SimpleDateFormat("yyyyMMdd", Locale.US).format(Date())
+            try {
+                SupabaseClientProvider.client.from("public_keys").upsert(
+                    PublicKeyRecord(
+                        user_id = userId,
+                        public_key = publicKeyBase64,
+                        key_date = today
+                    )
+                )
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Toast.makeText(
+                    this@MainActivity,
+                    "Couldn't sync your public key. Others may not be able to message you until this succeeds — try reopening the app on a better connection.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
         }
     }
 }
